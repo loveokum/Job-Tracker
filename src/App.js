@@ -1,17 +1,8 @@
-// ==========================
-// IMPORTS – MUST BE AT TOP
-// ==========================
 import React, { useState, useEffect } from 'react';
-import {
-  Trash2, Plus, Briefcase, CheckCircle, Clock, TrendingUp, AlertCircle,
-  User, Calendar, LogOut, Share2, Copy, Check
-} from 'lucide-react';
+import { Trash2, Plus, Briefcase, CheckCircle, Clock, TrendingUp, AlertCircle, User, Calendar, LogOut, Share2, Copy, Check } from 'lucide-react';
 
-// ==========================
-// SUPABASE REQUEST FUNCTION
-// ==========================
-const SUPABASE_URL = 'https://bzqresbsrlaqxezwzaam.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6cXJlc2JzcmxhcXhlend6YWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2NzIwNTgsImV4cCI6MjA3OTI0ODA1OH0.U_5d2Y90DaR91JIfgyuSMVozgtqM-o8s7882TJqfHZ4';
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_KEY = 'YOUR_ANON_KEY';
 
 const supabaseRequest = async (method, endpoint, body = null) => {
   const url = `${SUPABASE_URL}/rest/v1${endpoint}`;
@@ -24,7 +15,6 @@ const supabaseRequest = async (method, endpoint, body = null) => {
     },
   };
   if (body) options.body = JSON.stringify(body);
-
   try {
     const response = await fetch(url, options);
     const data = await response.json();
@@ -34,34 +24,25 @@ const supabaseRequest = async (method, endpoint, body = null) => {
   }
 };
 
-// ==========================
-// MAIN COMPONENT
-// ==========================
 export default function JobTracker() {
-  // ==========================
-  // STATE VARIABLES
-  // ==========================
+  // ---- State ----
   const [currentUser, setCurrentUser] = useState(null);
   const [authMode, setAuthMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [applications, setApplications] = useState([]);
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState('dashboard'); // 'dashboard' | 'jobs' | 'add'
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [editFormData, setEditFormData] = useState({ company: '', position: '', date: '', status: '', notes: '' });
+  const [formData, setFormData] = useState({ company: '', position: '', date: new Date().toISOString().split('T')[0], status: 'Applied', notes: '' });
   const [shareLink, setShareLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    company: '', position: '', date: '', status: '', notes: ''
-  });
-  const [formData, setFormData] = useState({
-    company: '', position: '', date: new Date().toISOString().split('T')[0], status: 'Applied', notes: ''
-  });
-  const [sharedApps, setSharedApps] = useState([]);
 
   const statusOptions = ['Applied', 'Reviewing', 'Interview Scheduled', 'Interviewing', 'Offer Received', 'Rejected', 'Withdrawn'];
+
   const statusColors = {
     'Applied': { bg: '#dbeafe', text: '#0369a1', icon: Clock },
     'Reviewing': { bg: '#fef3c7', text: '#b45309', icon: CheckCircle },
@@ -72,29 +53,7 @@ export default function JobTracker() {
     'Withdrawn': { bg: '#f3f4f6', text: '#374151', icon: Briefcase }
   };
 
-  const backgroundStyle = {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #00d4ff 0%, #0099ff 25%, #6366f1 75%, #ec4899 100%)',
-    backgroundAttachment: 'fixed',
-    padding: 'clamp(16px, 5vw, 24px)',
-    position: 'relative',
-    overflow: 'hidden'
-  };
-
-  const decorativePattern = (
-    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.1, pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <pattern id="dots" x="20" y="20" width="40" height="40" patternUnits="userSpaceOnUse">
-          <circle cx="10" cy="10" r="2" fill="white" />
-        </pattern>
-      </defs>
-      <rect width="100" height="100" fill="url(#dots)" />
-    </svg>
-  );
-
-  // ==========================
-  // INITIAL LOAD
-  // ==========================
+  // ---- Load current user ----
   useEffect(() => {
     try {
       const saved = localStorage.getItem('job-tracker-user');
@@ -109,9 +68,7 @@ export default function JobTracker() {
     }
   }, []);
 
-  // ==========================
-  // LOAD USER APPLICATIONS
-  // ==========================
+  // ---- Load applications ----
   const loadUserApplications = async (userId) => {
     setLoading(true);
     const { data, error } = await supabaseRequest('GET', `/applications?user_id=eq.${userId}`);
@@ -119,53 +76,57 @@ export default function JobTracker() {
     setLoading(false);
   };
 
-  // ==========================
-  // AUTH HANDLERS
-  // ==========================
+  // ---- Auth handlers ----
   const handleSignup = async (e) => {
     e.preventDefault();
-    setAuthError(''); setLoading(true);
-    if (!email || !password) return setAuthError('Please fill in all fields');
-    if (password.length < 6) return setAuthError('Password must be at least 6 characters');
+    setAuthError('');
+    setLoading(true);
+    if (!email || !password) { setAuthError('Please fill in all fields'); setLoading(false); return; }
+    if (password.length < 6) { setAuthError('Password must be at least 6 characters'); setLoading(false); return; }
 
     const userId = `user_${Date.now()}`;
     const { error } = await supabaseRequest('POST', '/users', { id: userId, email, password });
-    if (error) return setAuthError('Email already registered or error occurred');
+    if (error) { setAuthError('Email already registered or error occurred'); setLoading(false); return; }
 
     const user = { id: userId, email };
     localStorage.setItem('job-tracker-user', JSON.stringify(user));
-    setCurrentUser(user); setAuthMode('tracker'); setEmail(''); setPassword('');
-    await loadUserApplications(userId);
-    setLoading(false);
+    setCurrentUser(user);
+    setAuthMode('tracker');
+    setEmail(''); setPassword(''); setLoading(false);
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setAuthError(''); setLoading(true);
-    if (!email || !password) return setAuthError('Please fill in all fields');
+    setAuthError('');
+    setLoading(true);
+    if (!email || !password) { setAuthError('Please fill in all fields'); setLoading(false); return; }
 
     const { data, error } = await supabaseRequest('GET', `/users?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}`);
-    if (error || !data || data.length === 0) return setAuthError('Email not found or incorrect password');
+    if (error || !data || data.length === 0) { setAuthError('Email not found or incorrect password'); setLoading(false); return; }
 
     const user = { id: data[0].id, email };
     localStorage.setItem('job-tracker-user', JSON.stringify(user));
-    setCurrentUser(user); setAuthMode('tracker'); setEmail(''); setPassword('');
+    setCurrentUser(user);
+    setAuthMode('tracker');
     await loadUserApplications(data[0].id);
-    setLoading(false);
+    setEmail(''); setPassword(''); setLoading(false);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('job-tracker-user');
-    setCurrentUser(null); setAuthMode('login'); setApplications([]);
-    setEmail(''); setPassword(''); setAuthError('');
+    setCurrentUser(null);
+    setAuthMode('login');
+    setApplications([]);
+    setEmail('');
+    setPassword('');
+    setAuthError('');
   };
 
-  // ==========================
-  // SHARE LINK HANDLERS
-  // ==========================
+  // ---- Share link ----
   const generateShareLink = () => {
     const baseUrl = window.location.href.split('?')[0];
-    setShareLink(`${baseUrl}?share=${currentUser.id}`);
+    const link = `${baseUrl}?share=${currentUser.id}`;
+    setShareLink(link);
   };
 
   const copyToClipboard = () => {
@@ -174,27 +135,20 @@ export default function JobTracker() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // ==========================
-  // FORM HANDLERS
-  // ==========================
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  // ---- Form handlers ----
+  const handleInputChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleEditChange = (e) => setEditFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditFormData(prev => ({ ...prev, [name]: value }));
-  };
-
+  // ---- CRUD ----
   const addApplication = async () => {
-    if (!formData.company.trim() || !formData.position.trim()) return;
-    setLoading(true);
-    await supabaseRequest('POST', '/applications', { user_id: currentUser.id, ...formData });
-    await loadUserApplications(currentUser.id);
-    setFormData({ company: '', position: '', date: new Date().toISOString().split('T')[0], status: 'Applied', notes: '' });
-    setCurrentPage('dashboard');
-    setLoading(false);
+    if (formData.company.trim() && formData.position.trim()) {
+      setLoading(true);
+      await supabaseRequest('POST', '/applications', { user_id: currentUser.id, ...formData });
+      await loadUserApplications(currentUser.id);
+      setFormData({ company: '', position: '', date: new Date().toISOString().split('T')[0], status: 'Applied', notes: '' });
+      setCurrentPage('dashboard');
+      setLoading(false);
+    }
   };
 
   const updateStatus = async (id, newStatus) => {
@@ -226,35 +180,7 @@ export default function JobTracker() {
 
   const cancelEdit = () => setEditingId(null);
 
-  // ==========================
-  // SHARED VIEW LOGIC
-  // ==========================
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sharedUserId = urlParams.get('share');
-    if (!sharedUserId || sharedUserId === currentUser?.id) return;
-
-    const loadSharedApps = async () => {
-      const { data } = await supabaseRequest('GET', `/applications?user_id=eq.${sharedUserId}`);
-      if (data) setSharedApps(data);
-    };
-
-    loadSharedApps();
-    const interval = setInterval(loadSharedApps, 3000);
-    return () => clearInterval(interval);
-  }, [currentUser?.id]);
-
-  const sharedStats = {
-    total: sharedApps.length,
-    applied: sharedApps.filter(a => a.status === 'Applied').length,
-    interviews: sharedApps.filter(a => ['Interview Scheduled', 'Interviewing'].includes(a.status)).length,
-    offers: sharedApps.filter(a => a.status === 'Offer Received').length,
-    rejected: sharedApps.filter(a => a.status === 'Rejected').length
-  };
-
-  // ==========================
-  // DASHBOARD STATS
-  // ==========================
+  // ---- Stats ----
   const stats = {
     total: applications.length,
     applied: applications.filter(a => a.status === 'Applied').length,
@@ -263,10 +189,24 @@ export default function JobTracker() {
     rejected: applications.filter(a => a.status === 'Rejected').length
   };
 
-  // ==========================
-  // RENDER
-  // ==========================
-  // AUTH PAGES
+  // ---- Page navigation ----
+  const handleStatusClick = (status) => { setSelectedStatus(status); setCurrentPage('jobs'); };
+  const handleBackToDashboard = () => { setSelectedStatus(null); setCurrentPage('dashboard'); };
+
+  // ---- Decorative pattern ----
+  const backgroundStyle = { minHeight: '100vh', background: 'linear-gradient(135deg, #00d4ff 0%, #0099ff 25%, #6366f1 75%, #ec4899 100%)', backgroundAttachment: 'fixed', padding: 'clamp(16px, 5vw, 24px)', position: 'relative', overflow: 'hidden' };
+  const decorativePattern = (
+    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.1, pointerEvents: 'none' }} viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <pattern id="dots" x="20" y="20" width="40" height="40" patternUnits="userSpaceOnUse">
+          <circle cx="10" cy="10" r="2" fill="white" />
+        </pattern>
+      </defs>
+      <rect width="100" height="100" fill="url(#dots)" />
+    </svg>
+  );
+
+  // ---- Auth pages ----
   if (authMode === 'login' || authMode === 'signup') {
     return (
       <div style={backgroundStyle}>
@@ -283,8 +223,8 @@ export default function JobTracker() {
               </div>
               {authError && <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px' }}>{authError}</div>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={{ width: '100%', padding: '12px 16px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={{ width: '100%', padding: '12px 16px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={{ width: '100%', padding: '12px 16px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px' }} />
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={{ width: '100%', padding: '12px 16px', border: '2px solid #e5e7eb', borderRadius: '8px', fontSize: '14px' }} />
                 <button onClick={authMode === 'login' ? handleLogin : handleSignup} disabled={loading} style={{ background: 'linear-gradient(135deg, #00d4ff 0%, #0099ff 100%)', color: 'white', padding: '12px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '16px', opacity: loading ? 0.7 : 1 }}>
                   {loading ? 'Loading...' : (authMode === 'login' ? 'Sign In' : 'Create Account')}
                 </button>
@@ -302,17 +242,36 @@ export default function JobTracker() {
     );
   }
 
-  // ==========================
-  // SHARED VIEW PAGE
-  // ==========================
+  // ---- Shared view logic ----
   const urlParams = new URLSearchParams(window.location.search);
   const sharedUserId = urlParams.get('share');
+
   if (sharedUserId && sharedUserId !== currentUser?.id) {
+    const [sharedApps, setSharedApps] = useState([]);
+
+    useEffect(() => {
+      const loadSharedApps = async () => {
+        const { data } = await supabaseRequest('GET', `/applications?user_id=eq.${sharedUserId}`);
+        if (data) setSharedApps(data);
+      };
+      loadSharedApps();
+      const interval = setInterval(loadSharedApps, 3000);
+      return () => clearInterval(interval);
+    }, []);
+
+    const sharedStats = {
+      total: sharedApps.length,
+      applied: sharedApps.filter(a => a.status === 'Applied').length,
+      interviews: sharedApps.filter(a => ['Interview Scheduled', 'Interviewing'].includes(a.status)).length,
+      offers: sharedApps.filter(a => a.status === 'Offer Received').length,
+      rejected: sharedApps.filter(a => a.status === 'Rejected').length
+    };
+
     return (
       <div style={backgroundStyle}>
         {decorativePattern}
         <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-          <h1 style={{ color: 'white', fontSize: '32px', fontWeight: 'bold', margin: 0, marginBottom: '32px' }}>Shared Job Applications</h1>
+          <h1 style={{ color: 'white', fontSize: '32px', fontWeight: 'bold', marginBottom: '32px' }}>Shared Job Applications</h1>
 
           <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 640 ? '1fr 1fr' : 'repeat(5, 1fr)', gap: '16px', marginBottom: '32px' }}>
             {[
@@ -335,16 +294,16 @@ export default function JobTracker() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {sharedApps.map(app => {
-              const StatusIcon = statusColors[app.status]?.icon || Briefcase;
+              const StatusIcon = statusColors[app.status].icon;
               return (
-                <div key={app.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.95)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
-                  <div>
+                <div key={app.id} style={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: window.innerWidth < 640 ? 'column' : 'row', gap: '16px' }}>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#111' }}>{app.position}</div>
                     <div style={{ color: '#555', fontSize: '14px' }}>{app.company}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <StatusIcon size={20} color={statusColors[app.status]?.text} />
-                    <span style={{ color: statusColors[app.status]?.text, fontWeight: '600' }}>{app.status}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                      <StatusIcon size={16} color={statusColors[app.status].text} />
+                      <span style={{ color: statusColors[app.status].text, fontWeight: '600', fontSize: '14px' }}>{app.status}</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -355,31 +314,68 @@ export default function JobTracker() {
     );
   }
 
-  // ==========================
-  // DASHBOARD / MAIN PAGE
-  // ==========================
+  // ---- Jobs Page ----
+  if (currentPage === 'jobs') {
+    const filteredApplications = selectedStatus ? applications.filter(app => app.status === selectedStatus) : applications;
+
+    return (
+      <div style={backgroundStyle}>
+        {decorativePattern}
+        <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+          <header style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+            <button onClick={handleBackToDashboard} style={{ padding: '8px 16px', borderRadius: '8px', background: '#4ade80', color: 'white', fontWeight: '600' }}>← Back</button>
+            <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: 'white' }}>{selectedStatus || 'All'} Jobs</h1>
+          </header>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {filteredApplications.map(app => {
+              const StatusIcon = statusColors[app.status]?.icon || Briefcase;
+              return (
+                <div key={app.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.95)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#111' }}>{app.position}</div>
+                    <div style={{ color: '#555', fontSize: '14px' }}>{app.company}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                      <StatusIcon size={16} color={statusColors[app.status]?.text} />
+                      <span style={{ color: statusColors[app.status]?.text, fontWeight: '600', fontSize: '14px' }}>{app.status}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <button onClick={() => startEdit(app)} style={{ padding: '8px', borderRadius: '8px', background: '#fbbf24', color: '#fff', fontWeight: '600', marginRight: '8px' }}>Edit</button>
+                    <button onClick={() => deleteApplication(app.id)} style={{ padding: '8px', borderRadius: '8px', background: '#f87171', color: '#fff', fontWeight: '600' }}>Delete</button>
+                  </div>
+                </div>
+              );
+            })}
+            {filteredApplications.length === 0 && <p style={{ color: 'white', fontSize: '18px', textAlign: 'center', marginTop: '32px' }}>No applications found for "{selectedStatus}"</p>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Main Dashboard Page ----
   return (
     <div style={backgroundStyle}>
       {decorativePattern}
       <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', color: 'white' }}>
-          <h1 style={{ fontSize: '32px', fontWeight: 'bold' }}>Job Tracker</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '8px 16px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
-              Log Out
-            </button>
-            <button onClick={generateShareLink} style={{ background: 'rgba(255,255,255,0.2)', color: 'white', padding: '8px 16px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
-              Share
-            </button>
-            {shareLink && (
-              <button onClick={copyToClipboard} style={{ background: copied ? '#4ade80' : 'rgba(255,255,255,0.2)', color: 'white', padding: '8px 16px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
-                {copied ? 'Copied!' : 'Copy Link'}
-              </button>
-            )}
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+          <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: 'white' }}>Job Tracker</h1>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={generateShareLink} style={{ padding: '8px 16px', borderRadius: '8px', background: '#3b82f6', color: 'white', fontWeight: '600' }}>Share</button>
+            <button onClick={handleLogout} style={{ padding: '8px 16px', borderRadius: '8px', background: '#ef4444', color: 'white', fontWeight: '600' }}>Logout</button>
           </div>
         </header>
 
-        {/* STATS GRID */}
+        {shareLink && (
+          <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input type="text" value={shareLink} readOnly style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none' }} />
+            <button onClick={copyToClipboard} style={{ padding: '8px', borderRadius: '8px', background: '#10b981', color: 'white', fontWeight: '600' }}>
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 640 ? '1fr 1fr' : 'repeat(5, 1fr)', gap: '16px', marginBottom: '32px' }}>
           {[
             { label: 'Total', count: stats.total, icon: Briefcase, color: '#0099ff' },
@@ -390,7 +386,7 @@ export default function JobTracker() {
           ].map((stat, idx) => {
             const Icon = stat.icon;
             return (
-              <div key={idx} style={{ background: 'rgba(255, 255, 255, 0.95)', borderRadius: '12px', padding: '24px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
+              <div key={idx} onClick={() => stat.label !== 'Total' && handleStatusClick(stat.label)} style={{ cursor: stat.label !== 'Total' ? 'pointer' : 'default', background: 'rgba(255, 255, 255, 0.95)', borderRadius: '12px', padding: '24px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
                 <Icon size={24} color={stat.color} style={{ marginBottom: '8px' }} />
                 <div style={{ fontSize: '32px', fontWeight: 'bold', color: stat.color }}>{stat.count}</div>
                 <div style={{ fontSize: '14px', color: '#666', marginTop: '8px' }}>{stat.label}</div>
@@ -399,60 +395,71 @@ export default function JobTracker() {
           })}
         </div>
 
-        {/* APPLICATIONS LIST */}
+        {/* Add Application Button */}
+        <button onClick={() => setCurrentPage('add')} style={{ padding: '12px 24px', borderRadius: '12px', background: '#10b981', color: 'white', fontWeight: '600', marginBottom: '32px' }}>
+          <Plus size={16} style={{ marginRight: '8px' }} /> Add Application
+        </button>
+
+        {/* Add Application Form */}
+        {currentPage === 'add' && (
+          <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '12px', padding: '24px', marginBottom: '32px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Add New Application</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <input type="text" name="company" placeholder="Company" value={formData.company} onChange={handleInputChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
+              <input type="text" name="position" placeholder="Position" value={formData.position} onChange={handleInputChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
+              <input type="date" name="date" value={formData.date} onChange={handleInputChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
+              <select name="status" value={formData.status} onChange={handleInputChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }}>
+                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <textarea name="notes" placeholder="Notes" value={formData.notes} onChange={handleInputChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button onClick={addApplication} style={{ padding: '12px', borderRadius: '8px', background: '#10b981', color: 'white', fontWeight: '600' }}>Add</button>
+                <button onClick={() => setCurrentPage('dashboard')} style={{ padding: '12px', borderRadius: '8px', background: '#ef4444', color: 'white', fontWeight: '600' }}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Applications List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {applications.map(app => {
             const StatusIcon = statusColors[app.status]?.icon || Briefcase;
+
+            if (editingId === app.id) {
+              return (
+                <div key={app.id} style={{ background: 'rgba(255,255,255,0.95)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input type="text" name="company" value={editFormData.company} onChange={handleEditChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
+                  <input type="text" name="position" value={editFormData.position} onChange={handleEditChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
+                  <input type="date" name="date" value={editFormData.date} onChange={handleEditChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
+                  <select name="status" value={editFormData.status} onChange={handleEditChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }}>
+                    {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <textarea name="notes" value={editFormData.notes} onChange={handleEditChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db' }} />
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button onClick={() => saveEdit(app.id)} style={{ padding: '12px', borderRadius: '8px', background: '#10b981', color: 'white', fontWeight: '600' }}>Save</button>
+                    <button onClick={cancelEdit} style={{ padding: '12px', borderRadius: '8px', background: '#ef4444', color: 'white', fontWeight: '600' }}>Cancel</button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={app.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', borderRadius: '12px', background: 'rgba(255,255,255,0.95)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
-                {editingId === app.id ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-                    <input name="company" value={editFormData.company} onChange={handleEditChange} placeholder="Company" style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ccc' }} />
-                    <input name="position" value={editFormData.position} onChange={handleEditChange} placeholder="Position" style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ccc' }} />
-                    <input name="date" type="date" value={editFormData.date} onChange={handleEditChange} style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ccc' }} />
-                    <select name="status" value={editFormData.status} onChange={handleEditChange} style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ccc' }}>
-                      {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <textarea name="notes" value={editFormData.notes} onChange={handleEditChange} placeholder="Notes" style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#111' }}>{app.position}</div>
+                  <div style={{ color: '#555', fontSize: '14px' }}>{app.company}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                    <StatusIcon size={16} color={statusColors[app.status]?.text} />
+                    <span style={{ color: statusColors[app.status]?.text, fontWeight: '600', fontSize: '14px' }}>{app.status}</span>
                   </div>
-                ) : (
-                  <div>
-                    <div style={{ fontWeight: 'bold', fontSize: '18px', color: '#111' }}>{app.position}</div>
-                    <div style={{ color: '#555', fontSize: '14px' }}>{app.company}</div>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {editingId === app.id ? (
-                    <>
-                      <button onClick={() => saveEdit(app.id)} style={{ padding: '8px', borderRadius: '8px', background: '#4ade80', color: '#fff', fontWeight: '600' }}>Save</button>
-                      <button onClick={cancelEdit} style={{ padding: '8px', borderRadius: '8px', background: '#f87171', color: '#fff', fontWeight: '600' }}>Cancel</button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => startEdit(app)} style={{ padding: '8px', borderRadius: '8px', background: '#fbbf24', color: '#fff', fontWeight: '600' }}>Edit</button>
-                      <button onClick={() => deleteApplication(app.id)} style={{ padding: '8px', borderRadius: '8px', background: '#f87171', color: '#fff', fontWeight: '600' }}>Delete</button>
-                    </>
-                  )}
+                </div>
+                <div>
+                  <button onClick={() => startEdit(app)} style={{ padding: '8px', borderRadius: '8px', background: '#fbbf24', color: '#fff', fontWeight: '600', marginRight: '8px' }}>Edit</button>
+                  <button onClick={() => deleteApplication(app.id)} style={{ padding: '8px', borderRadius: '8px', background: '#f87171', color: '#fff', fontWeight: '600' }}>Delete</button>
                 </div>
               </div>
             );
           })}
-        </div>
-
-        {/* ADD APPLICATION FORM */}
-        <div style={{ marginTop: '32px', background: 'rgba(255,255,255,0.95)', borderRadius: '12px', padding: '24px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ marginBottom: '16px', fontSize: '24px', fontWeight: 'bold', color: '#111' }}>Add New Application</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <input name="company" value={formData.company} onChange={handleInputChange} placeholder="Company" style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
-            <input name="position" value={formData.position} onChange={handleInputChange} placeholder="Position" style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
-            <input name="date" type="date" value={formData.date} onChange={handleInputChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
-            <select name="status" value={formData.status} onChange={handleInputChange} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }}>
-              {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <textarea name="notes" value={formData.notes} onChange={handleInputChange} placeholder="Notes" style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc' }} />
-            <button onClick={addApplication} style={{ padding: '12px', borderRadius: '8px', background: '#00d4ff', color: '#fff', fontWeight: '600', cursor: 'pointer' }}>Add Application</button>
-          </div>
         </div>
       </div>
     </div>
