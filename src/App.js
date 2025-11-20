@@ -1,8 +1,25 @@
-import React, { useState, useEffect } from 'react';
+if (sharedUserId && sharedUserId !== currentUser?.id) {  // SHARE VIEW
+  const urlParams = new URLSearchParams(window.location.search);
+  const sharedUserId = urlParams.get('share');
+  const [sharedApps, setSharedApps] = useState([]);
+
+  useEffect(() => {
+    if (sharedUserId && sharedUserId !== currentUser?.id) {
+      const loadSharedApps = async () => {
+        const { data } = await supabaseRequest('GET', `/applications?user_id=eq.${sharedUserId}`);
+        if (data) setSharedApps(data);
+      };
+      loadSharedApps();
+      const interval = setInterval(loadSharedApps, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [sharedUserId, currentUser?.id]);
+
+  if (sharedUserId && sharedUserId !== currentUser?.id) {import React, { useState, useEffect } from 'react';
 import { Trash2, Plus, Briefcase, CheckCircle, Clock, TrendingUp, AlertCircle, User, Calendar, LogOut, Share2, Copy, Check } from 'lucide-react';
 
-const SUPABASE_URL = 'https://bzqresbsrlaqxezwzaam.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ6cXJlc2JzcmxhcXhlend6YWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2NzIwNTgsImV4cCI6MjA3OTI0ODA1OH0.U_5d2Y90DaR91JIfgyuSMVozgtqM-o8s7882TJqfHZ4';
+const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_KEY = 'YOUR_ANON_KEY';
 
 const supabaseRequest = async (method, endpoint, body = null) => {
   const url = `${SUPABASE_URL}/rest/v1${endpoint}`;
@@ -342,8 +359,6 @@ export default function JobTracker() {
       offers: sharedApps.filter(a => a.status === 'Offer Received').length,
       rejected: sharedApps.filter(a => a.status === 'Rejected').length
     };
-
-    return (
       <div style={backgroundStyle}>
         {decorativePattern}
         <div style={{ maxWidth: '1200px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
@@ -553,4 +568,6 @@ export default function JobTracker() {
       </div>
     </div>
   );
+}
+}
 }
